@@ -28,5 +28,8 @@ done
 
 cat dsc-*.pem > masterlist-dsc.pem
 
+# JavaScripts prefers PKCS#8
+openssl pkcs8 -in dsc-worker.key -nocrypt -topk8 -out dsc-worker.p8
+
 # Remove unneeded keys and certs
 rm -f csca.key dsc-?.key dsc-?.pem 
