@@ -72,7 +72,13 @@ if args.base64:
     cin = b64decode(cin.decode("ASCII"))
 else:
     if not args.skip_base45:
-        cin = b45decode(cin.decode("ASCII"))
+        cin = cin.decode("ASCII")
+
+        if cin.startswith('HC1'):
+              cin = cin[3:]
+
+        cin = b45decode(cin)
+
 if not args.skip_zlib:
     cin = zlib.decompress(cin)
 

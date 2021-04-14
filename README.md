@@ -1,5 +1,8 @@
 # Trivial/rudimentary eHN-simplified implementation
 
+Aligned with version 1.00 / 2021-4-14 of the spec:
+	https://github.com/ehn-digital-green-development/hcert-spec/blob/main/hcert_spec.md
+
 For round-trip testing of ```cose_sign.py``` and ```cose_verify.py``` take some
 JSON, e.g. ```{ "Foo" : "Bar }```, CBOR package, COSE sign, compress and base45
 convert it for use in a QR.
