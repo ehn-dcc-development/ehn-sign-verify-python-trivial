@@ -80,7 +80,8 @@ else:
         cin = b45decode(cin)
 
 if not args.skip_zlib:
-    cin = zlib.decompress(cin)
+    if (cin[0] == 0x78):
+       cin = zlib.decompress(cin)
 
 decoded = CoseMessage.decode(cin)
 
