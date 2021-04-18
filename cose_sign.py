@@ -104,6 +104,6 @@ if args.base64:
     out = b64encode(out)
 else:
    if not args.skip_base45:
-      out = b'HC1' + b45encode(out).encode('ascii')
+      out = b'HC1:' + b45encode(out).encode('ascii')
 
 sys.stdout.buffer.write(out)

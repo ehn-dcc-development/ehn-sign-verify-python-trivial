@@ -76,6 +76,8 @@ else:
 
         if cin.startswith('HC1'):
               cin = cin[3:]
+              if cin.startswith(':'):
+                  cin = cin[1:]
 
         cin = b45decode(cin)
 
