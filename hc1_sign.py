@@ -4,6 +4,7 @@ import zlib
 import argparse
 import json
 import cbor2
+from datetime import datetime
 from base64 import b64encode
 
 
@@ -39,6 +40,26 @@ parser.add_argument(
     help="Skip encoding the input with CBOR first (i.e. accept plain UTF-8)",
 )
 parser.add_argument(
+    "-i",
+    "--issuing-country",
+    action="store_true",
+    help="Issuing country, claim key 1, optional, ISO 3166-1 alpha-2 of issuer) (default is 'NL')",
+    default="NL"
+)
+parser.add_argument(
+    "-t",
+    "--time-to-live",
+    action="store_true",
+    help="Time to live (for the experation time, in seconds, default is 180 days)",
+    default=180 * 24 * 3600,
+)
+parser.add_argument(
+    "-C",
+    "--skip-claim",
+    action="store_true",
+    help="Skip wrapping the Health Certificate Claim (-260) around the payload"
+)
+parser.add_argument(
     "keyfile",
     default="dsc-worker.key",
     nargs="?",
@@ -57,6 +78,16 @@ payload = sys.stdin.buffer.read()
 if not args.skip_cbor:
     payload = json.loads(payload.decode("utf-8"))
     payload = cbor2.dumps(payload)
+
+if not args.skip_claim:
+    payload = cbor2.dumps({
+               1: args.issuing_country,
+               4: int(datetime.now().timestamp() + args.time_to_live),
+               6: int(datetime.today().timestamp()),
+               -260: {
+                    1: payload,
+                },
+         })
 
 # Note - we only need the public key for the KeyID calculation - we're not actually using it.
 #

@@ -56,6 +56,12 @@ parser.add_argument(
     help="Skip CBOR unpacking (accept any UTF8)",
 )
 parser.add_argument(
+    "-C",
+    "--skip-claim",
+    action="store_true",
+    help="Skip health claim unpacking",
+)
+parser.add_argument(
     "-p",
     "--prettyprint-json",
     action="store_true",
@@ -136,8 +142,20 @@ payload = decoded.payload
 
 if not args.skip_cbor:
     payload = cbor2.loads(payload)
+    if not args.skip_claim:
+        claim_names = { 1 : "Issuer", 6: "Issued At", 4: "Experation time", -260 : "Health claims" }
+        for k in payload:
+          if k != -260:
+            n = f'Claim {k} (unknown)'
+            if k in claim_names:
+               n = claim_names[k]
+            print(f'{n:20}: {payload[k]}')
+        payload = cbor2.loads(payload[-260][1])
+        n = 'Health payload'
+        print(f'{n:20}: ',end="")
+
     if args.prettyprint_json:
-        payload = print(json.dumps(payload, indent=4, sort_keys=True))
+        payload = json.dumps(payload, indent=4, sort_keys=True)
     else:
         payload = json.dumps(payload)
     print(payload)
