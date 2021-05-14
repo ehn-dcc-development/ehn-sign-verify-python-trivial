@@ -77,17 +77,19 @@ payload = sys.stdin.buffer.read()
 
 if not args.skip_cbor:
     payload = json.loads(payload.decode("utf-8"))
-    payload = cbor2.dumps(payload)
 
 if not args.skip_claim:
-    payload = cbor2.dumps({
+    payload = {
                1: args.issuing_country,
                4: int(datetime.now().timestamp() + args.time_to_live),
                6: int(datetime.today().timestamp()),
                -260: {
                     1: payload,
                 },
-         })
+         }
+
+if not args.skip_cbor:
+    payload = cbor2.dumps(payload)
 
 # Note - we only need the public key for the KeyID calculation - we're not actually using it.
 #

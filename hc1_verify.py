@@ -150,7 +150,8 @@ if not args.skip_cbor:
             if k in claim_names:
                n = claim_names[k]
             print(f'{n:20}: {payload[k]}')
-        payload = cbor2.loads(payload[-260][1])
+        # payload = cbor2.loads(payload[-260][1])
+        payload = payload[-260][1]
         n = 'Health payload'
         print(f'{n:20}: ',end="")
 
