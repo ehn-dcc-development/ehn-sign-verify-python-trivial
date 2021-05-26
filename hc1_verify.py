@@ -5,6 +5,8 @@ import json
 import sys
 import zlib
 from base64 import b64decode
+from datetime import date, datetime
+
 
 import cbor2
 from binascii import unhexlify, hexlify
@@ -21,6 +23,14 @@ from cose.keys.keytype import KtyEC2
 from cose.messages import CoseMessage
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
+
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError ("Type %s not serializable" % type(obj))
+
 
 parser = argparse.ArgumentParser(
     description="Parse and validate a base45/zlib/cose/cbor QR."
@@ -156,10 +166,11 @@ if not args.skip_cbor:
         print(f'{n:20}: ',end="")
 
     if args.prettyprint_json:
-        payload = json.dumps(payload, indent=4, sort_keys=True)
+        payload = json.dumps(payload, indent=4, sort_keys=True, default=json_serial)
     else:
-        payload = json.dumps(payload)
+        payload = json.dumps(payload, default=json_serial)
     print(payload)
     sys.exit(0)
 
 sys.stdout.buffer.write(payload)
+
