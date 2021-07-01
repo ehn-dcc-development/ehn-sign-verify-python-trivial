@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 import zlib
+import re
 from base64 import b64decode
 from datetime import date, datetime
 
@@ -40,6 +41,9 @@ parser.add_argument(
 )
 parser.add_argument(
     "-b", "--skip-base45", action="store_true", help="Skip base45 decoding"
+)
+parser.add_argument(
+    "-A", "--noanon", action="store_true", help="Do not anonymise"
 )
 parser.add_argument(
     "-z", "--skip-zlib", action="store_true", help="Skip zlib decompression"
@@ -165,10 +169,19 @@ if not args.skip_cbor:
         n = 'Health payload'
         print(f'{n:20}: ',end="")
 
+    if not args.noanon:
+        if 'dob' in payload:
+           payload['dob'] = re.sub(r'\d{1}','X', payload['dob'])
+        if 'nam' in payload:
+           for k in payload['nam'].keys():
+              payload['nam'][k] = re.sub(r'[A-Z]{1}','X', payload['nam'][k])
+              payload['nam'][k] = re.sub(r'[a-z]{1}','x', payload['nam'][k])
     if args.prettyprint_json:
         payload = json.dumps(payload, indent=4, sort_keys=True, default=json_serial)
     else:
         payload = json.dumps(payload, default=json_serial)
+    if not args.noanon:
+        payload = re.sub('URN:UCI:01:.*?#','URN:UCI:01:......#', payload)
     print(payload)
     sys.exit(0)
 
