@@ -7,6 +7,7 @@ import zlib
 import re
 from base64 import b64decode
 from datetime import date, datetime
+from hmac import compare_digest
 
 
 import cbor2
@@ -134,7 +135,7 @@ if not args.ignore_signature:
         else:
             given_kid = decoded.uhdr[KID]
 
-        if given_kid != keyid:
+        if not compare_digest(given_kid, keyid):
             raise Exception(
                 "KeyID is unknown (expected %s, got %s) -- cannot verify."
                 % (hexlify(keyid), hexlify(given_kid))
