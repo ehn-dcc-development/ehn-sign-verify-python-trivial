@@ -60,7 +60,7 @@ parser.add_argument(
     "-X", "--xy", action="store", help="X,Y (comma separated, in lieu of cert)"
 )
 parser.add_argument(
-    "-K", "--ignore-kid", action="store_true", help="Do not verify the KID"
+    "-K", "--ignore-kid", action="store_true", help="Do not verify the KID."
 )
 parser.add_argument(
     "-k", "--kid", action="store", help="Specify the KID as an 8 byte hex value."
@@ -158,14 +158,10 @@ if args.use_verifier or args.use_verifier_url:
     eulist = trustlist['eu_keys']
     for kid_b64 in eulist:
         kid = b64decode(kid_b64)
+
         asn1data = b64decode(eulist[kid_b64][0]['subjectPk'])
-        # value of subjectPk is a base64 ASN1 package of:
-        #  0:d=0  hl=2 l=  89 cons: SEQUENCE          
-        #      2:d=1  hl=2 l=  19 cons: SEQUENCE          
-        #      4:d=2  hl=2 l=   7 prim: OBJECT            :id-ecPublicKey
-        #     13:d=2  hl=2 l=   8 prim: OBJECT            :prime256v1
-        #     23:d=1  hl=2 l=  66 prim: BIT STRING       
         pub = serialization.load_der_public_key(asn1data)
+
         if (isinstance(pub, RSAPublicKey)):
               kids[kid_b64] = CoseKey.from_dict(
                {   
@@ -174,8 +170,7 @@ if args.use_verifier or args.use_verifier_url:
                     RSAKpE: int_to_bytes(pub.public_numbers().e),
                     RSAKpN: int_to_bytes(pub.public_numbers().n)
                })
-        else:
-           if (isinstance(pub, EllipticCurvePublicKey)):
+        elif (isinstance(pub, EllipticCurvePublicKey)):
               kids[kid_b64] = CoseKey.from_dict(
                {
                     KpKty: KtyEC2,
@@ -184,8 +179,9 @@ if args.use_verifier or args.use_verifier_url:
                     EC2KpX: pub.public_numbers().x.to_bytes(32, byteorder="big"),
                     EC2KpY: pub.public_numbers().y.to_bytes(32, byteorder="big")
                })
-           else:
-              print("Unexpected key type (keyid={kid_b64}).",  file=sys.stderr)
+        else:
+              print(f"Skipping unexpected/unknown key type (keyid={kid_b64}, {pub.__class__.__name__}).",  file=sys.stderr)
+
 else:
   if  not args.ignore_signature:
     with open(args.cert, "rb") as file:
