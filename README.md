@@ -49,3 +49,7 @@ Testing against the AT cases:
 1. Remove the first 2 bytes and do
 
    ```pbpaste| sed -e 's/^00//' | python3.8 hc1_verify.py --base64 --ignore-signature --cbor```
+
+# Verify using Docker
+1. Build doing e.g.: ```docker build . -t verify``` 
+2. Verify from buffer: ```pbpaste | docker run -i verify -i -p```
