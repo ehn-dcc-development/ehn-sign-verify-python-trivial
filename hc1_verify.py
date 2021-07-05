@@ -254,8 +254,10 @@ if not args.skip_cbor:
            payload['dob'] = re.sub(r'\d{1}','X', payload['dob'])
         if 'nam' in payload:
            for k in payload['nam'].keys():
+              # Handle accented chars somewhat graceful (but capitals will leak a bit).
+              payload['nam'][k] = payload['nam'][k].encode("ascii","replace").decode('ascii')
               payload['nam'][k] = re.sub(r'[A-Z]{1}','X', payload['nam'][k])
-              payload['nam'][k] = re.sub(r'[a-z]{1}','x', payload['nam'][k])
+              payload['nam'][k] = re.sub(r'[a-z\?]{1}','x', payload['nam'][k])
     if args.prettyprint_json:
         payload = json.dumps(payload, indent=4, sort_keys=True, default=json_serial, ensure_ascii=False)
     else:
