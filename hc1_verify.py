@@ -15,17 +15,19 @@ from binascii import unhexlify, hexlify
 
 from base45 import b45decode
 from cose.algorithms import Es256
-from cose.curves import P256
-from cose.algorithms import Es256, EdDSA
-from cose.headers import KID
+from cose.keys.curves import P256
+from cose.algorithms import Es256, EdDSA, Ps256
+from cose.headers import KID, Algorithm
 from cose.keys import CoseKey
-from cose.keys.keyparam import KpAlg, EC2KpX, EC2KpY, EC2KpCurve
+from cose.keys.keyparam import KpAlg, EC2KpX, EC2KpY, EC2KpCurve, RSAKpE, RSAKpN
 from cose.keys.keyparam import KpKty
-from cose.keys.keytype import KtyEC2
+from cose.keys.keytype import KtyEC2, KtyRSA
 from cose.messages import CoseMessage
 from cryptography import x509
+from cryptography.utils import int_to_bytes
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
@@ -125,13 +127,20 @@ decoded = CoseMessage.decode(cin)
 
 kids = {}
 keyid = None
+key = None
 
 if args.kid:
     keyid = bytes.fromhex(args.kid)
 
 if args.xy:
     x, y = [bytes.fromhex(val) for val in args.xy.split(",")]
-    kids[keyid] = [ x, y ]
+    key = CoseKey.from_dict({
+                    KpKty: KtyEC2,
+                    EC2KpCurve: P256,  # Ought o be pk.curve - but the two libs clash
+                    KpAlg: Es256,  # ecdsa-with-SHA256
+                    EC2KpX: x,
+                    EC2KpY: y
+     })
 
 if args.use_verifier or args.use_verifier_url:
     if args.ignore_signature:
@@ -157,14 +166,26 @@ if args.use_verifier or args.use_verifier_url:
         #     13:d=2  hl=2 l=   8 prim: OBJECT            :prime256v1
         #     23:d=1  hl=2 l=  66 prim: BIT STRING       
         pub = serialization.load_der_public_key(asn1data)
-        try:
-           # Count on a crash on non EC keys.
-           x = pub.public_numbers().x.to_bytes(32, byteorder="big")
-           y = pub.public_numbers().y.to_bytes(32, byteorder="big")
-           kids[kid_b64] = [ x, y ]
-        except:
-           if args.verbose:
-              print("Ignoring entry with non EC key in trust list.", file=sys.stderr)
+        if (isinstance(pub, RSAPublicKey)):
+              kids[kid_b64] = CoseKey.from_dict(
+               {   
+                    KpKty: KtyRSA,
+                    KpAlg: Ps256,  # RSSASSA-PSS-with-SHA-256-and-MFG1
+                    RSAKpE: int_to_bytes(pub.public_numbers().e),
+                    RSAKpN: int_to_bytes(pub.public_numbers().n)
+               })
+        else:
+           if (isinstance(pub, EllipticCurvePublicKey)):
+              kids[kid_b64] = CoseKey.from_dict(
+               {
+                    KpKty: KtyEC2,
+                    EC2KpCurve: P256,  # Ought o be pk.curve - but the two libs clash
+                    KpAlg: Es256,  # ecdsa-with-SHA256
+                    EC2KpX: pub.public_numbers().x.to_bytes(32, byteorder="big"),
+                    EC2KpY: pub.public_numbers().y.to_bytes(32, byteorder="big")
+               })
+           else:
+              print("Unexpected key type (keyid={kid_b64}).",  file=sys.stderr)
 else:
   if  not args.ignore_signature:
     with open(args.cert, "rb") as file:
@@ -175,45 +196,46 @@ else:
     fingerprint = cert.fingerprint(hashes.SHA256())
     # keyid = fingerprint[-8:]
     keyid = fingerprint[0:8]
+    keyid_b64 = b64encode(keyid).decode('ASCII')
 
-    x = pub.x.to_bytes(32, byteorder="big")
-    y = pub.y.to_bytes(32, byteorder="big")
-    kids[keyid] = [ x, y ]
+    kids[keyid_b64] = CoseKey.from_dict(
+               {
+                    KpKty: KtyEC2,
+                    EC2KpCurve: P256,  # Ought o be pk.curve - but the two libs clash
+                    KpAlg: Es256,  # ecdsa-with-SHA256
+                    EC2KpX: pub.x.to_bytes(32, byteorder="big"),
+                    EC2KpY: pub.y.to_bytes(32, byteorder="big")
+               }
+    )
+
+given_kid = None
+if KID in decoded.phdr.keys():
+   given_kid = decoded.phdr[KID]
+else:
+   given_kid = decoded.uhdr[KID]
+   if args.verbose:
+       print("KID in the unprotected header.", file=sys.stderr)
+
+given_kid_b64 = b64encode(given_kid).decode('ASCII')
+print(f"Signature           : {given_kid_b64} @ {decoded.phdr[Algorithm].fullname}")
 
 if not args.ignore_signature:
     if not args.ignore_kid:
-        given_kid = None
-        if KID in decoded.phdr.keys():
-            given_kid = decoded.phdr[KID]
-        else:
-            given_kid = decoded.uhdr[KID]
-
-        given_kid_b64 = b64encode(given_kid).decode('ASCII')
-
         if not given_kid_b64 in kids:
             print(f"KeyID is unknown (kid={given_kid_b64}) -- cannot verify.", file=sys.stderr)
             sys.exit(1)
-        x = kids[given_kid_b64][0]
-        y = kids[given_kid_b64][1]
+        key  = kids[given_kid_b64]
 
-    decoded.key = CoseKey.from_dict(
-        {
-            KpKty: KtyEC2,
-            EC2KpCurve: P256,  # Ought o be pk.curve - but the two libs clash
-            KpAlg: Es256,  # ecdsa-with-SHA256
-            EC2KpX: x,
-            EC2KpY: y,
-        }
-    )
+    decoded.key = key
     if not decoded.verify_signature():
         print("Signature invalid (kid={given_kid_b64})", file=sys.stderr)
         sys.exit(1)
 
     if args.verbose:
-        print("Correct signature againt known key (kid={given_kid_b64})", file=sys.stderr)
+        print(f"Correct signature againt known key (kid={given_kid_b64})", file=sys.stderr)
 else:
     print("Warning: signature not validated", file=sys.stderr)
-    
+   
 payload = decoded.payload
 
 if not args.skip_cbor:
