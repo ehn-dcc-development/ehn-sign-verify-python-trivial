@@ -164,7 +164,7 @@ if args.use_verifier or args.use_verifier_url:
            kids[kid_b64] = [ x, y ]
         except:
            if args.verbose:
-              print("Ignoring entry with non EC key in trust list.")
+              print("Ignoring entry with non EC key in trust list.", file=sys.stderr)
 else:
   if  not args.ignore_signature:
     with open(args.cert, "rb") as file:
@@ -191,9 +191,8 @@ if not args.ignore_signature:
         given_kid_b64 = b64encode(given_kid).decode('ASCII')
 
         if not given_kid_b64 in kids:
-            raise Exception(
-                "KeyID is unknown (%s) -- cannot verify.", given_kid_b64
-            )
+            print(f"KeyID is unknown (kid={given_kid_b64}) -- cannot verify.", file=sys.stderr)
+            sys.exit(1)
         x = kids[given_kid_b64][0]
         y = kids[given_kid_b64][1]
 
@@ -207,8 +206,14 @@ if not args.ignore_signature:
         }
     )
     if not decoded.verify_signature():
-        raise Exception("faulty sig")
+        print("Signature invalid (kid={given_kid_b64})", file=sys.stderr)
+        sys.exit(1)
 
+    if args.verbose:
+        print("Correct signature againt known key (kid={given_kid_b64})", file=sys.stderr)
+else:
+    print("Warning: signature not validated", file=sys.stderr)
+    
 payload = decoded.payload
 
 if not args.skip_cbor:
