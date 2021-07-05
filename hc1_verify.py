@@ -263,7 +263,7 @@ if not args.skip_cbor:
     else:
         payload = json.dumps(payload, default=json_serial)
     if not args.noanon:
-        payload = re.sub('URN:UCI:01:.*?#','URN:UCI:01:......#', payload)
+        payload = re.sub('URN:UV?CI:01:(\w+):\w+','URN:UCI:01:\g<1>:......', payload, flags=re.IGNORECASE)
     print(payload)
     sys.exit(0)
 
