@@ -94,7 +94,7 @@ parser.add_argument(
     "-p",
     "--prettyprint-json",
     action="store_true",
-    help="Pretty print and sort the JSON",
+    help="Pretty print and sort the JSON. Will output UTF-8 as is (none pretty print will escape any UTF8).",
 )
 parser.add_argument(
     "cert", help="Certificate to validate against", default="dsc-worker.pem", nargs="?"
@@ -257,7 +257,7 @@ if not args.skip_cbor:
               payload['nam'][k] = re.sub(r'[A-Z]{1}','X', payload['nam'][k])
               payload['nam'][k] = re.sub(r'[a-z]{1}','x', payload['nam'][k])
     if args.prettyprint_json:
-        payload = json.dumps(payload, indent=4, sort_keys=True, default=json_serial)
+        payload = json.dumps(payload, indent=4, sort_keys=True, default=json_serial, ensure_ascii=False)
     else:
         payload = json.dumps(payload, default=json_serial)
     if not args.noanon:
