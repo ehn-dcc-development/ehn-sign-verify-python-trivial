@@ -2,10 +2,11 @@
 
 import argparse
 import json
+import urllib.request
 import sys
 import zlib
 import re
-from base64 import b64decode
+from base64 import b64decode, b64encode
 from datetime import date, datetime
 
 
@@ -24,6 +25,11 @@ from cose.keys.keytype import KtyEC2
 from cose.messages import CoseMessage
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+
+DEFAULT_TRUST_URL = 'https://verifier-api.coronacheck.nl/v4/verifier/public_keys'
 
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
@@ -58,6 +64,13 @@ parser.add_argument(
     "-k", "--kid", action="store", help="Specify the KID as an 8 byte hex value."
 )
 parser.add_argument(
+    "-U", "--use-verifier", action="store_true", 
+    help="Use default trusted keys from " + DEFAULT_TRUST_URL
+)
+parser.add_argument(
+    "-u", "--use-verifier-url", action="store", help="Use specific URL for trusted publick_keys"
+)
+parser.add_argument(
     "-i",
     "--ignore-signature",
     action="store_true",
@@ -84,6 +97,9 @@ parser.add_argument(
 parser.add_argument(
     "cert", help="Certificate to validate against", default="dsc-worker.pem", nargs="?"
 )
+parser.add_argument(
+    "-v", "--verbose", action="count", help="Verbose outout"
+)
 args = parser.parse_args()
 
 cin = sys.stdin.buffer.read()
@@ -107,26 +123,64 @@ if not args.skip_zlib:
 
 decoded = CoseMessage.decode(cin)
 
-if not args.ignore_signature:
+kids = {}
+keyid = None
+
+if args.kid:
+    keyid = bytes.fromhex(args.kid)
+
+if args.xy:
+    x, y = [bytes.fromhex(val) for val in args.xy.split(",")]
+    kids[keyid] = [ x, y ]
+
+if args.use_verifier or args.use_verifier_url:
+    if args.ignore_signature:
+      print("Flag --ignore-signature not compatible with trusted URL check", file=sys.stderr)
+      sys.exit(1)
+
+    url = DEFAULT_TRUST_URL
+    if args.use_verifier_url:
+       url = args.use_verifier_url
+    response = urllib.request.urlopen(url)
+    pkg = json.loads(response.read())
+    payload = b64decode(pkg['payload'])
+    trustlist = json.loads(payload)
+    # 'eu_keys': {'hA1+pwEOxCI=': [{'subjectPk': 'MFkwEw....yDHm7wm7aRoFhd5MxW4G5cw==', 'keyUsage': ['t', 'v', 'r']}],
+    eulist = trustlist['eu_keys']
+    for kid_b64 in eulist:
+        kid = b64decode(kid_b64)
+        asn1data = b64decode(eulist[kid_b64][0]['subjectPk'])
+        # value of subjectPk is a base64 ASN1 package of:
+        #  0:d=0  hl=2 l=  89 cons: SEQUENCE          
+        #      2:d=1  hl=2 l=  19 cons: SEQUENCE          
+        #      4:d=2  hl=2 l=   7 prim: OBJECT            :id-ecPublicKey
+        #     13:d=2  hl=2 l=   8 prim: OBJECT            :prime256v1
+        #     23:d=1  hl=2 l=  66 prim: BIT STRING       
+        pub = serialization.load_der_public_key(asn1data)
+        try:
+           # Count on a crash on non EC keys.
+           x = pub.public_numbers().x.to_bytes(32, byteorder="big")
+           y = pub.public_numbers().y.to_bytes(32, byteorder="big")
+           kids[kid_b64] = [ x, y ]
+        except:
+           if args.verbose:
+              print("Ignoring entry with non EC key in trust list.")
+else:
+  if  not args.ignore_signature:
     with open(args.cert, "rb") as file:
         pem = file.read()
-    if args.xy:
-        x, y = [bytes.fromhex(val) for val in args.xy.split(",")]
-        keyid = None
-    else:
-        cert = x509.load_pem_x509_certificate(pem)
-        pub = cert.public_key().public_numbers()
+    cert = x509.load_pem_x509_certificate(pem)
+    pub = cert.public_key().public_numbers()
 
-        fingerprint = cert.fingerprint(hashes.SHA256())
-        # keyid = fingerprint[-8:]
-        keyid = fingerprint[0:8]
+    fingerprint = cert.fingerprint(hashes.SHA256())
+    # keyid = fingerprint[-8:]
+    keyid = fingerprint[0:8]
 
-        x = pub.x.to_bytes(32, byteorder="big")
-        y = pub.y.to_bytes(32, byteorder="big")
+    x = pub.x.to_bytes(32, byteorder="big")
+    y = pub.y.to_bytes(32, byteorder="big")
+    kids[keyid] = [ x, y ]
 
-    if args.kid:
-        keyid = bytes.fromhex(args.kid)
-
+if not args.ignore_signature:
     if not args.ignore_kid:
         given_kid = None
         if KID in decoded.phdr.keys():
@@ -134,11 +188,14 @@ if not args.ignore_signature:
         else:
             given_kid = decoded.uhdr[KID]
 
-        if given_kid != keyid:
+        given_kid_b64 = b64encode(given_kid).decode('ASCII')
+
+        if not given_kid_b64 in kids:
             raise Exception(
-                "KeyID is unknown (expected %s, got %s) -- cannot verify."
-                % (hexlify(keyid), hexlify(given_kid))
+                "KeyID is unknown (%s) -- cannot verify.", given_kid_b64
             )
+        x = kids[given_kid_b64][0]
+        y = kids[given_kid_b64][1]
 
     decoded.key = CoseKey.from_dict(
         {
