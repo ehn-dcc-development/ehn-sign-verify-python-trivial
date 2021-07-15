@@ -5,7 +5,7 @@ import argparse
 import json
 import cbor2
 from datetime import datetime
-from base64 import b64encode
+from base64 import b64encode, b64decode
 
 
 from base45 import b45encode
@@ -60,6 +60,12 @@ parser.add_argument(
     help="Skip wrapping the Health Certificate Claim (-260) around the payload"
 )
 parser.add_argument(
+    "-k",
+    "--set-keyid",
+    action="store",
+    help="Set the KeyID to a specific value (default is to use the correct one from the signing key). Specified as a base64 encoded 32 byte binary value."
+)
+parser.add_argument(
     "keyfile",
     default="dsc-worker.key",
     nargs="?",
@@ -98,6 +104,9 @@ with open(args.certfile, "rb") as file:
 cert = x509.load_pem_x509_certificate(pem)
 fingerprint = cert.fingerprint(hashes.SHA256())
 keyid = fingerprint[0:8]
+
+if args.set_keyid:
+    keyid =  b64decode(args.set_keyid)
 
 # Read in the private key that we use to actually sign this
 #
