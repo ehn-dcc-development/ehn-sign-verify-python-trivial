@@ -187,7 +187,8 @@ if args.use_verifier or args.use_verifier_url:
     pkg = json.loads(response.read())
     payload = b64decode(pkg['payload'])
     trustlist = json.loads(payload)
-    for kid_b64 in  trustlist['eu_keys']:
+    eulist = trustlist['eu_keys']
+    for kid_b64 in eulist:
         add_kid(kid_b64,eulist[kid_b64][0]['subjectPk'])
 
 elif args.use_uk_verifier:
@@ -195,7 +196,7 @@ elif args.use_uk_verifier:
     response = urllib.request.urlopen(url)
     uklist = json.loads(response.read())
     for e in uklist:
-       add_kidse['kid'], e['publicKey'])
+       add_kid(e['kid'], e['publicKey'])
 
 else:
   if  not args.ignore_signature:
