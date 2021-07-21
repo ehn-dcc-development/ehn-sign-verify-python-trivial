@@ -32,6 +32,33 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 DEFAULT_TRUST_URL = 'https://verifier-api.coronacheck.nl/v4/verifier/public_keys'
+DEFAULT_TRUST_UK_URL = 'https://covid-status.service.nhsx.nhs.uk/pubkeys/keys.json'
+
+def add_kids(kid_b64, key_b64):
+        kid = b64decode(kid_b64)
+        asn1data = b64decode(key_b64)
+
+        pub = serialization.load_der_public_key(asn1data)
+        if (isinstance(pub, RSAPublicKey)):
+              kids[kid_b64] = CoseKey.from_dict(
+               {   
+                    KpKty: KtyRSA,
+                    KpAlg: Ps256,  # RSSASSA-PSS-with-SHA-256-and-MFG1
+                    RSAKpE: int_to_bytes(pub.public_numbers().e),
+                    RSAKpN: int_to_bytes(pub.public_numbers().n)
+               })
+        elif (isinstance(pub, EllipticCurvePublicKey)):
+              kids[kid_b64] = CoseKey.from_dict(
+               {
+                    KpKty: KtyEC2,
+                    EC2KpCurve: P256,  # Ought o be pk.curve - but the two libs clash
+                    KpAlg: Es256,  # ecdsa-with-SHA256
+                    EC2KpX: pub.public_numbers().x.to_bytes(32, byteorder="big"),
+                    EC2KpY: pub.public_numbers().y.to_bytes(32, byteorder="big")
+               })
+        else:
+              print(f"Skipping unexpected/unknown key type (keyid={kid_b64}, {pub.__class__.__name__}).",  file=sys.stderr)
+
 
 def json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
@@ -68,6 +95,10 @@ parser.add_argument(
 parser.add_argument(
     "-U", "--use-verifier", action="store_true", 
     help="Use default trusted keys from " + DEFAULT_TRUST_URL
+)
+parser.add_argument(
+    "-G", "--use-uk-verifier", action="store_true", 
+    help="Use default trusted keys from the UK: " + DEFAULT_TRUST_UK_URL
 )
 parser.add_argument(
     "-u", "--use-verifier-url", action="store", help="Use specific URL for trusted publick_keys"
@@ -146,6 +177,9 @@ if args.use_verifier or args.use_verifier_url:
     if args.ignore_signature:
       print("Flag --ignore-signature not compatible with trusted URL check", file=sys.stderr)
       sys.exit(1)
+    if args.use_uk_verifier:
+      print("Flag for UK verifier not compatible with trusted URL check", file=sys.stderr)
+      sys.exit(1)
 
     url = DEFAULT_TRUST_URL
     if args.use_verifier_url:
@@ -157,31 +191,13 @@ if args.use_verifier or args.use_verifier_url:
     # 'eu_keys': {'hA1+pwEOxCI=': [{'subjectPk': 'MFkwEw....yDHm7wm7aRoFhd5MxW4G5cw==', 'keyUsage': ['t', 'v', 'r']}],
     eulist = trustlist['eu_keys']
     for kid_b64 in eulist:
-        kid = b64decode(kid_b64)
-
-        asn1data = b64decode(eulist[kid_b64][0]['subjectPk'])
-        pub = serialization.load_der_public_key(asn1data)
-
-        if (isinstance(pub, RSAPublicKey)):
-              kids[kid_b64] = CoseKey.from_dict(
-               {   
-                    KpKty: KtyRSA,
-                    KpAlg: Ps256,  # RSSASSA-PSS-with-SHA-256-and-MFG1
-                    RSAKpE: int_to_bytes(pub.public_numbers().e),
-                    RSAKpN: int_to_bytes(pub.public_numbers().n)
-               })
-        elif (isinstance(pub, EllipticCurvePublicKey)):
-              kids[kid_b64] = CoseKey.from_dict(
-               {
-                    KpKty: KtyEC2,
-                    EC2KpCurve: P256,  # Ought o be pk.curve - but the two libs clash
-                    KpAlg: Es256,  # ecdsa-with-SHA256
-                    EC2KpX: pub.public_numbers().x.to_bytes(32, byteorder="big"),
-                    EC2KpY: pub.public_numbers().y.to_bytes(32, byteorder="big")
-               })
-        else:
-              print(f"Skipping unexpected/unknown key type (keyid={kid_b64}, {pub.__class__.__name__}).",  file=sys.stderr)
-
+        add_kids(kid_b64,eulist[kid_b64][0]['subjectPk'])
+elif args.use_uk_verifier:
+    url = DEFAULT_TRUST_UK_URL
+    response = urllib.request.urlopen(url)
+    uklist = json.loads(response.read())
+    for e in uklist:
+       add_kids(e['kid'], e['publicKey'])
 else:
   if  not args.ignore_signature:
     with open(args.cert, "rb") as file:
@@ -268,4 +284,5 @@ if not args.skip_cbor:
     sys.exit(0)
 
 sys.stdout.buffer.write(payload)
+sys.exit(0)
 
