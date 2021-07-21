@@ -9,7 +9,6 @@ import re
 from base64 import b64decode, b64encode
 from datetime import date, datetime
 
-
 import cbor2
 from binascii import unhexlify, hexlify
 
@@ -34,7 +33,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 DEFAULT_TRUST_URL = 'https://verifier-api.coronacheck.nl/v4/verifier/public_keys'
 DEFAULT_TRUST_UK_URL = 'https://covid-status.service.nhsx.nhs.uk/pubkeys/keys.json'
 
-def add_kids(kid_b64, key_b64):
+def add_kid(kid_b64, key_b64):
         kid = b64decode(kid_b64)
         asn1data = b64decode(key_b64)
 
@@ -94,7 +93,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "-U", "--use-verifier", action="store_true", 
-    help="Use default trusted keys from " + DEFAULT_TRUST_URL
+    help="Use default trusted keys (Dutch set; from the eHealth network): " + DEFAULT_TRUST_URL
 )
 parser.add_argument(
     "-G", "--use-uk-verifier", action="store_true", 
@@ -178,7 +177,7 @@ if args.use_verifier or args.use_verifier_url:
       print("Flag --ignore-signature not compatible with trusted URL check", file=sys.stderr)
       sys.exit(1)
     if args.use_uk_verifier:
-      print("Flag for UK verifier not compatible with trusted URL check", file=sys.stderr)
+      print("Flag for UK verifier not compatible with trusted URL/EU-DCC check", file=sys.stderr)
       sys.exit(1)
 
     url = DEFAULT_TRUST_URL
@@ -188,16 +187,16 @@ if args.use_verifier or args.use_verifier_url:
     pkg = json.loads(response.read())
     payload = b64decode(pkg['payload'])
     trustlist = json.loads(payload)
-    # 'eu_keys': {'hA1+pwEOxCI=': [{'subjectPk': 'MFkwEw....yDHm7wm7aRoFhd5MxW4G5cw==', 'keyUsage': ['t', 'v', 'r']}],
-    eulist = trustlist['eu_keys']
-    for kid_b64 in eulist:
-        add_kids(kid_b64,eulist[kid_b64][0]['subjectPk'])
+    for kid_b64 in  trustlist['eu_keys']:
+        add_kid(kid_b64,eulist[kid_b64][0]['subjectPk'])
+
 elif args.use_uk_verifier:
     url = DEFAULT_TRUST_UK_URL
     response = urllib.request.urlopen(url)
     uklist = json.loads(response.read())
     for e in uklist:
-       add_kids(e['kid'], e['publicKey'])
+       add_kidse['kid'], e['publicKey'])
+
 else:
   if  not args.ignore_signature:
     with open(args.cert, "rb") as file:
