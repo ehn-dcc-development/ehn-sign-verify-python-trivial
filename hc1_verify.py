@@ -170,9 +170,11 @@ if args.xy:
                     KpAlg: Es256,  # ecdsa-with-SHA256
                     EC2KpX: x,
                     EC2KpY: y
-     })
+    })
+    if not args.ignore_kid and keyid:
+        kids[b64encode(keyid).decode('ASCII')] = key
 
-if args.use_verifier or args.use_verifier_url:
+elif args.use_verifier or args.use_verifier_url:
     if args.ignore_signature:
       print("Flag --ignore-signature not compatible with trusted URL check", file=sys.stderr)
       sys.exit(1)
@@ -244,7 +246,7 @@ if not args.ignore_signature:
 
     decoded.key = key
     if not decoded.verify_signature():
-        print("Signature invalid (kid={given_kid_b64})", file=sys.stderr)
+        print(f"Signature invalid (kid={given_kid_b64})", file=sys.stderr)
         sys.exit(1)
 
     if args.verbose:
