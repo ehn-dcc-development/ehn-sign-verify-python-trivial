@@ -199,11 +199,15 @@ elif args.use_uk_verifier:
        add_kid(e['kid'], e['publicKey'])
 
 else:
-  if  not args.ignore_signature:
-    with open(args.cert, "rb") as file:
-        pem = file.read()
-    cert = x509.load_pem_x509_certificate(pem)
-    pub = cert.public_key().public_numbers()
+  if not args.ignore_signature:
+    try:
+        with open(args.cert, "rb") as file:
+            pem = file.read()
+        cert = x509.load_pem_x509_certificate(pem)
+        pub = cert.public_key().public_numbers()
+    except OSError as err:
+        print(f"Unable to load certificate from '{args.cert}' file: {err.strerror}", file=sys.stderr)
+        sys.exit(1)
 
     fingerprint = cert.fingerprint(hashes.SHA256())
     # keyid = fingerprint[-8:]
