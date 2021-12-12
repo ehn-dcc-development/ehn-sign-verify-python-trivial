@@ -23,11 +23,11 @@ convert it for use in a QR.
 
 ### Decoding a barcode from production (i.e. a DCC in the wild)
 
-     qrdecode photo.jpg | python3 ./hc1_verify -v -U -p
+     qrdecode photo.jpg | python3 ./hc1_verify.py -v -U -p
 
 or
 
-     qrdecode photo.jpg | python3 ./hc1_verify -v -i -p
+     qrdecode photo.jpg | python3 ./hc1_verify.py -v -i -p
 
 The first will check against the Dutch copy of the eHealth trustlist; the second version, with the -i, will not check the actual signature. The typical output will look like:
 
