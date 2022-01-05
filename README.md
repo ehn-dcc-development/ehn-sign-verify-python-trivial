@@ -65,7 +65,7 @@ Health payload      : {
 ### Test Steps
 
 1. Generate the CSCA and DSC with ```./gen-csca-dsc.sh```	
-1. Run the command: ```echo "{'A': 1234}" | python3.8 hc1_sign.py | python3.8 hc1_verify.py```
+1. Run the command: ```echo '{"A": 1234}' | python3.8 hc1_sign.py | python3.8 hc1_verify.py```
 1. You should see the output: ```{"A": 1234}```
 
 ```echo '{ "Foo":1, "Bar":{ "Field1": "a value",   "integer":1212112121 }}' | python3.8 hc1_sign.py | python3.8 hc1_verify.py prettyprint-json```
