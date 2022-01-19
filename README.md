@@ -82,3 +82,12 @@ Which should output:
 }
 ```
 
+
+# Testing COSE from Austrian website
+
+Testing against the AT cases:
+
+1. Fetch the Base45 from https://dev.a-sit.at/certservice
+1. Remove the first 2 bytes and do
+
+   ```pbpaste| sed -e 's/^00//' | python3.8 hc1_verify.py --base64 --ignore-signature --cbor```
