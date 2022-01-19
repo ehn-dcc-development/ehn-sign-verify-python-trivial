@@ -170,9 +170,11 @@ if args.xy:
                     KpAlg: Es256,  # ecdsa-with-SHA256
                     EC2KpX: x,
                     EC2KpY: y
-     })
+    })
+    if not args.ignore_kid and keyid:
+        kids[b64encode(keyid).decode('ASCII')] = key
 
-if args.use_verifier or args.use_verifier_url:
+elif args.use_verifier or args.use_verifier_url:
     if args.ignore_signature:
       print("Flag --ignore-signature not compatible with trusted URL check", file=sys.stderr)
       sys.exit(1)
@@ -199,11 +201,15 @@ elif args.use_uk_verifier:
        add_kid(e['kid'], e['publicKey'])
 
 else:
-  if  not args.ignore_signature:
-    with open(args.cert, "rb") as file:
-        pem = file.read()
-    cert = x509.load_pem_x509_certificate(pem)
-    pub = cert.public_key().public_numbers()
+  if not args.ignore_signature:
+    try:
+        with open(args.cert, "rb") as file:
+            pem = file.read()
+        cert = x509.load_pem_x509_certificate(pem)
+        pub = cert.public_key().public_numbers()
+    except OSError as err:
+        print(f"Unable to load certificate from '{args.cert}' file: {err.strerror}", file=sys.stderr)
+        sys.exit(1)
 
     fingerprint = cert.fingerprint(hashes.SHA256())
     # keyid = fingerprint[-8:]
@@ -240,7 +246,7 @@ if not args.ignore_signature:
 
     decoded.key = key
     if not decoded.verify_signature():
-        print("Signature invalid (kid={given_kid_b64})", file=sys.stderr)
+        print(f"Signature invalid (kid={given_kid_b64})", file=sys.stderr)
         sys.exit(1)
 
     if args.verbose:
