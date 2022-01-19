@@ -32,7 +32,7 @@ or
 The first will check against the Dutch copy of the eHealth trustlist; the second version, with the -i, will not check the actual signature. The typical output will look like:
 
 ```
-Correct signature againt known key (kid=3lTmAZX19GQ=)
+Correct signature against known key (kid=3lTmAZX19GQ=)
 Issuer              : NL
 Experation time     : 1626966160
 Issued At           : 1624546960

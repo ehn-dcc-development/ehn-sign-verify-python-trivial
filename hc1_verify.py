@@ -244,7 +244,7 @@ if not args.ignore_signature:
         sys.exit(1)
 
     if args.verbose:
-        print(f"Correct signature againt known key (kid={given_kid_b64})", file=sys.stderr)
+        print(f"Correct signature against known key (kid={given_kid_b64})", file=sys.stderr)
 else:
     print("Warning: signature not validated", file=sys.stderr)
    
