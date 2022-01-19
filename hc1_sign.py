@@ -5,12 +5,12 @@ import argparse
 import json
 import cbor2
 from datetime import datetime
-from base64 import b64encode
+from base64 import b64encode, b64decode
 
 
 from base45 import b45encode
 from cose.algorithms import Es256
-from cose.curves import P256
+from cose.keys.curves import P256
 from cose.algorithms import Es256, EdDSA
 from cose.keys.keyparam import KpKty, KpAlg, EC2KpD, EC2KpX, EC2KpY, EC2KpCurve
 from cose.headers import Algorithm, KID
@@ -60,6 +60,12 @@ parser.add_argument(
     help="Skip wrapping the Health Certificate Claim (-260) around the payload"
 )
 parser.add_argument(
+    "-k",
+    "--set-keyid",
+    action="store",
+    help="Set the KeyID to a specific value (default is to use the correct one from the signing key). Specified as a base64 encoded 32 byte binary value."
+)
+parser.add_argument(
     "keyfile",
     default="dsc-worker.key",
     nargs="?",
@@ -99,6 +105,9 @@ cert = x509.load_pem_x509_certificate(pem)
 fingerprint = cert.fingerprint(hashes.SHA256())
 keyid = fingerprint[0:8]
 
+if args.set_keyid:
+    keyid =  b64decode(args.set_keyid)
+
 # Read in the private key that we use to actually sign this
 #
 with open(args.keyfile, "rb") as file:
@@ -137,6 +146,6 @@ if args.base64:
     out = b64encode(out)
 else:
    if not args.skip_base45:
-      out = b'HC1:' + b45encode(out).encode('ascii')
+      out = b'HC1:' + b45encode(out).decode().encode('ascii')
 
 sys.stdout.buffer.write(out)

@@ -21,10 +21,51 @@ convert it for use in a QR.
    1. unpack the payload and extract the issuer and dates
    1. unpack the health claim and output as json.
 
+### Decoding a barcode from production (i.e. a DCC in the wild)
+
+     qrdecode photo.jpg | python3 ./hc1_verify.py -v -U -p
+
+or
+
+     qrdecode photo.jpg | python3 ./hc1_verify.py -v -i -p
+
+The first will check against the Dutch copy of the eHealth trustlist; the second version, with the -i, will not check the actual signature. The typical output will look like:
+
+```
+Correct signature against known key (kid=3lTmAZX19GQ=)
+Issuer              : NL
+Experation time     : 1626966160
+Issued At           : 1624546960
+Health payload      : {
+    "dob": "XXXX-XX-XX",
+    "nam": {
+        "fn": "xxx Xxxxx",
+        "fnt": "XXX<XXXXX",
+        "gn": "Xxxx Xxxxxx",
+        "gnt": "XXXX<XXXXXX"
+    },
+    "v": [
+        {
+            "ci": "URN:UCI:01:NL:......#:",
+            "co": "NL",
+            "dn": 1,
+            "dt": "2021-06-07",
+            "is": "Ministry of Health Welfare and Sport",
+            "ma": "ORG-100001417",
+            "mp": "EU/1/20/1525",
+            "sd": 1,
+            "tg": "840539006",
+            "vp": "J07BX03"
+        }
+    ],
+    "ver": "1.3.0"
+}
+```
+
 ### Test Steps
 
 1. Generate the CSCA and DSC with ```./gen-csca-dsc.sh```	
-1. Run the command: ```echo "{'A': 1234}" | python3.8 hc1_sign.py | python3.8 hc1_verify.py```
+1. Run the command: ```echo '{"A": 1234}' | python3.8 hc1_sign.py | python3.8 hc1_verify.py```
 1. You should see the output: ```{"A": 1234}```
 
 ```echo '{ "Foo":1, "Bar":{ "Field1": "a value",   "integer":1212112121 }}' | python3.8 hc1_sign.py | python3.8 hc1_verify.py prettyprint-json```
@@ -40,6 +81,7 @@ Which should output:
    }
 }
 ```
+
 
 # Testing COSE from Austrian website
 
