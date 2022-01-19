@@ -68,11 +68,15 @@ Health payload      : {
 1. Run the command: ```echo '{"A": 1234}' | python3.8 hc1_sign.py | python3.8 hc1_verify.py```
 1. You should see the output: ```{"A": 1234}```
 
-```echo '{ "Foo":1, "Bar":{ "Field1": "a value",   "integer":1212112121 }}' | python3.8 hc1_sign.py | python3.8 hc1_verify.py prettyprint-json```
+```bash
+echo '{"Foo":1, "Bar":{"Field1":"a value", "integer":1212112121}}' | \
+    python3 hc1_sign.py | \
+    python3 hc1_verify.py --prettyprint-json
+```
 
 Which should output:
 
-```
+```json
 {
     "Foo": 1, 
     "Bar": {
@@ -90,4 +94,7 @@ Testing against the AT cases:
 1. Fetch the Base45 from https://dev.a-sit.at/certservice
 1. Remove the first 2 bytes and do
 
-   ```pbpaste| sed -e 's/^00//' | python3.8 hc1_verify.py --base64 --ignore-signature --cbor```
+   ```bash
+   pbpaste | sed -e 's/^00//' | \
+       python3 hc1_verify.py --base64 --ignore-signature --cbor
+   ```
